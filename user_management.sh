@@ -1,58 +1,96 @@
 #!/bin/bash
 
-echo "================================"
-echo "    USER MANAGEMENT SYSTEM      "
-echo "================================"
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Log file
+LOG="/home/mas/user_management.log"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> $LOG
+}
+
+echo -e "${BLUE}================================${NC}"
+echo -e "${BLUE}    USER MANAGEMENT SYSTEM      ${NC}"
+echo -e "${BLUE}================================${NC}"
+echo "Started: $(date)"
 echo ""
 
-echo "==GROUP CREATION=="
-if ! getent group staff > /dev/null; then
-    sudo groupadd staff
-    echo "Group staff created ✅"
-else
-    echo "Group staff already exists — skipping"
-fi
-echo ""
+# Groups to create
+GROUPS=("staff" "developers" "admins")
 
-echo "==USER CREATION=="
-for user in alice bob charlie; do
-    if ! id "$user" > /dev/null 2>&1; then
-        sudo adduser $user
-        echo "User $user created ✅"
+echo -e "${YELLOW}==GROUP CREATION==${NC}"
+for group in "staff" "developers" "admins"; do
+    if ! getent group $group > /dev/null; then
+        sudo groupadd $group
+        echo -e "${GREEN}Group $group created ✅${NC}"
+        log "Group $group created"
     else
-        echo "User $user already exists — skipping"
+        echo -e "${YELLOW}Group $group already exists — skipping${NC}"
     fi
 done
 echo ""
 
-echo "==ADDING USERS TO GROUP=="
-for user in alice bob charlie; do
-    sudo usermod -aG staff $user
-    echo "$user added to staff ✅"
+# Users to create
+USERS=("alice" "bob" "charlie")
+
+echo -e "${YELLOW}==USER CREATION==${NC}"
+for user in "${USERS[@]}"; do
+    if ! id "$user" > /dev/null 2>&1; then
+        sudo adduser --disabled-password --gecos "" $user
+        echo -e "${GREEN}User $user created ✅${NC}"
+        log "User $user created"
+    else
+        echo -e "${YELLOW}User $user already exists — skipping${NC}"
+    fi
 done
 echo ""
 
-echo "==CREATING SHARED FOLDER=="
-if [ ! -d "/home/staff" ]; then
-    sudo mkdir /home/staff
-    sudo chown root:staff /home/staff
-    sudo chmod 2770 /home/staff
-    echo "Folder created ✅"
-else
-    echo "Folder already exists — skipping"
-fi
+echo -e "${YELLOW}==ADDING USERS TO GROUPS==${NC}"
+for user in "${USERS[@]}"; do
+    sudo usermod -aG staff $user
+    echo -e "${GREEN}$user added to staff ✅${NC}"
+    log "$user added to staff group"
+done
 echo ""
 
-echo "==VERIFICATION=="
-echo "--- Staff group members ---"
-cat /etc/group | grep staff
+echo -e "${YELLOW}==CREATING SHARED FOLDERS==${NC}"
+for group in "${GROUPS[@]}"; do
+    if [ ! -d "/home/$group" ]; then
+        sudo mkdir /home/$group
+        sudo chown root:$group /home/$group
+        sudo chmod 2770 /home/$group
+        echo -e "${GREEN}Folder /home/$group created ✅${NC}"
+        log "Folder /home/$group created"
+    else
+        echo -e "${YELLOW}Folder /home/$group already exists — skipping${NC}"
+    fi
+done
+echo ""
+
+echo -e "${YELLOW}==VERIFICATION==${NC}"
+echo "--- Groups created ---"
+for group in "${GROUPS[@]}"; do
+    cat /etc/group | grep "^$group"
+done
 echo ""
 echo "--- User profiles ---"
-cat /etc/passwd | grep -E "alice|bob|charlie"
+for user in "${USERS[@]}"; do
+    cat /etc/passwd | grep "^$user"
+done
 echo ""
 echo "--- Folder permissions ---"
-ls -la /home/ | grep staff
+ls -la /home/ | grep -E "staff|developers|admins"
 echo ""
-echo "================================"
-echo "  USER MANAGEMENT COMPLETE! ✅  "
-echo "================================"
+
+echo "--- Activity Log ---"
+cat $LOG
+echo ""
+
+echo -e "${BLUE}================================${NC}"
+echo -e "${GREEN}  USER MANAGEMENT COMPLETE! ✅  ${NC}"
+echo -e "${BLUE}================================${NC}"
